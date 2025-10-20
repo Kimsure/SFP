@@ -13,7 +13,7 @@ Training-free open-vocabulary semantic segmentation has advanced with vision-lan
 
 You can check and verify the attention outlier at [Notebook](outlier_vis.ipynb).
 
-[fig](./figs/outlier_vis.png)
+![fig](./figs/outlier_vis.png)
 
 
 ### Installation
