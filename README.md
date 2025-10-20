@@ -9,10 +9,15 @@ Training-free open-vocabulary semantic segmentation has advanced with vision-lan
 
 ---
 
+### Visualization of Outlier Propagation
+
+You can check and verify the attention outlier at [Notebook](outlier_vis.ipynb).
+
+[fig](./figs/outlier_vis.png)
 
 
 ### Installation
-
+---
 ```
 git clone https://github.com/Kimsure/SFP.git
 cd SFP
@@ -40,19 +45,19 @@ pip install ftfy regex numpy==1.26.4 yapf==0.40.1
 ```
 
 ### Datasets
-
+---
 Plase follow SCLIP and mmsegentation_document.
 
 ### Quick Start
-
+---
 We currently provide a visualization notebook to evaluate the outler detector. You can check and verify it at [HERE](outlier_vis.ipynb).
 
 ### TODOs
-
+---
 We are still organizing our codes and will release the remaining parts once ready. Please stay tuned.
 
 ### Citations
-
+---
 If you find our work useful, please cite this paper:
 ```
 @inproceedings{jin2025feature,
@@ -64,5 +69,5 @@ If you find our work useful, please cite this paper:
 ```
 
 ### Acknowledgement
-
-This repository was developed based on CLIPtrase, SCLIP, etc. Thanks for their great works!
+---
+This repository was developed based on [CLIPtrase](https://github.com/leaves162/CLIPtrase), [SCLIP](https://github.com/wangf3014/SCLIP), etc. Thanks for their great works!
