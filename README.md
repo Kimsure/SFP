@@ -1,4 +1,4 @@
-# Feature Purificatrion Matters: Supressing outlier propagation for training-free open-vocabulary semantic segmentation, ICCV25
+## Feature Purificatrion Matters: Supressing outlier propagation for training-free open-vocabulary semantic segmentation, ICCV25
 
 ## Abstract
 
