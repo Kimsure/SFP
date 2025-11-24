@@ -21,7 +21,7 @@ from pamr import PAMR
 class SFPForSegmentation(BaseSegmentor):
     def __init__(self, clip_path, name_path, device=torch.device('cuda'),
                     pamr_steps=0, pamr_stride=(8, 16), prob_thd=0.0, logit_scale=40, 
-                    slide_stride=112, slide_crop=224, area_thd=None, 
+                    slide_stride=112, slide_crop=224, area_thd=None, purify=True, pm='SOM',
                     cross_s=3, cross_e=10, res_cls=0.3):
         
         data_preprocessor = SegDataPreProcessor(
@@ -34,6 +34,8 @@ class SFPForSegmentation(BaseSegmentor):
         self.net.visual.cross_s = cross_s
         self.net.visual.cross_e = cross_e
         self.net.visual.res_cls = res_cls
+        self.net.visual.purify = purify
+        self.net.visual.pm = pm
         
         query_words, self.query_idx = get_cls_idx(name_path)
         self.num_queries = len(query_words)
@@ -68,7 +70,7 @@ class SFPForSegmentation(BaseSegmentor):
         if type(img) == list:
             img = img[0]
 
-        image_features = self.net.encode_image(img, return_all=True)
+        image_features = self.net.encode_image(img, return_each=True)
         image_features /= image_features.norm(dim=-1, keepdim=True)
         logits = image_features @ self.query_features.T
         # print("logits", logits.shape)

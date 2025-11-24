@@ -65,7 +65,7 @@ class AttentionPool2d(nn.Module):
         self.c_proj = nn.Linear(embed_dim, output_dim or embed_dim)
         self.num_heads = num_heads
 
-    def forward(self, x, return_all_tokens=False):
+    def forward(self, x, return_each_tokens=False):
         x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3]).permute(2, 0, 1)  # NCHW -> (HW)NC
         x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)  # (HW+1)NC
         x = x + self.positional_embedding[:, None, :].to(x.dtype)  # (HW+1)NC
@@ -88,7 +88,7 @@ class AttentionPool2d(nn.Module):
             training=self.training,
             need_weights=False
         )
-        if return_all_tokens:
+        if return_each_tokens:
             return x
         else:
             return x[0]
@@ -136,7 +136,7 @@ class ModifiedResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, return_all_tokens=False):
+    def forward(self, x, return_each_tokens=False):
         def stem(x):
             for conv, bn in [(self.conv1, self.bn1), (self.conv2, self.bn2), (self.conv3, self.bn3)]:
                 x = self.relu(bn(conv(x)))
@@ -149,7 +149,7 @@ class ModifiedResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-        x = self.attnpool(x, return_all_tokens)
+        x = self.attnpool(x, return_each_tokens)
 
         return x
 
@@ -203,16 +203,16 @@ class Transformer(nn.Module):
             [ResidualAttentionBlock(width, heads, attn_mask) for _ in range(layers)]
         )
 
-    def forward(self, x: torch.Tensor, return_all_attn_weights=False):
+    def forward(self, x: torch.Tensor, return_each_attn_weights=False):
         attn_weights_list = []  # save attn_weight at each layer if needed
 
         for blk in self.resblocks:
             # decouple ResidualAttentionBlock output
             x, attn_weight = blk(x)
-            if return_all_attn_weights:
+            if return_each_attn_weights:
                 attn_weights_list.append(attn_weight)
 
-        if return_all_attn_weights:
+        if return_each_attn_weights:
             return x, attn_weights_list
         else:
             return x
@@ -229,6 +229,8 @@ class VisionTransformer(nn.Module):
         self.res_cls = 0.3
         self.res_scale = 5.0
         self.thres = 0.4
+        self.cross_s = 3
+        self.cross_e = 10
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=width, kernel_size=patch_size, stride=patch_size, bias=False)
         scale = width ** -0.5
         self.class_embedding = nn.Parameter(scale * torch.randn(width))
@@ -237,12 +239,9 @@ class VisionTransformer(nn.Module):
         self.transformer = Transformer(width, layers, heads)
         self.ln_post = LayerNorm(width)
         self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
+        self.purify = True  # whether to use outlier detection and feature purification
 
-        self.cross_s = 3
-        self.cross_e = 10
-        
-    
-    def forward(self, x: torch.Tensor, return_all=False, return_attn=False):
+    def forward(self, x: torch.Tensor, return_each=False, return_attn=False):
         B, nc, w, h = x.shape
         x = self.conv1(x)
         feat_w, feat_h = x.shape[-2], x.shape[-1]
@@ -265,6 +264,49 @@ class VisionTransformer(nn.Module):
             feats_list.append(x)
             attn_list.append(attn_weight)
             attn_maps += attn_weight[:,:,1:,1:]
+            if idx == len(self.transformer.resblocks) - 1:
+                if self.purify:
+                    if self.pm == 'SOM': # outlier detector -- SOM (to simplify, only apply to last layer, same function)
+                        attn_weight = attn_weight.squeeze(0)  # remove batch dim
+                        attn_weight = attn_weight.mean(dim=0)  # average over heads
+                        # print("attn_weight", attn_weight.shape)
+                        cls_attn = attn_weight[0, 1:]
+                        self_attn = torch.diag(attn_weight[1:, 1:])
+                        important_mask = cls_attn > self_attn        # CLS > self
+
+                        important_scores = cls_attn[important_mask]
+                        important_indices = torch.nonzero(important_mask, as_tuple=False).squeeze(1)
+                        sorted_scores, sort_idx = torch.sort(important_scores, descending=True)
+                        top_patch_indices = important_indices[sort_idx[:10]]
+
+                        outlier_index = [
+                            (
+                                torch.div(idx.detach().cpu(), feat_w, rounding_mode='trunc'),
+                                idx.detach().cpu() % feat_w
+                            )
+                            for idx in top_patch_indices
+                        ]
+                    elif self.pm == 'L2': # outlier detector -- L2 norm sort
+                        cls_token = x[:1, ...]
+                        # patch_token = x.clone()
+                        norms = torch.norm(x[1:, ...].squeeze(1), dim=1)
+                        sorted_norms, sorted_indices = torch.sort(norms, descending=True)
+                        outlier_index = [
+                            (
+                                torch.div(index.detach().cpu(), feat_w, rounding_mode='trunc'), 
+                                index.detach().cpu() % feat_w
+                            ) 
+                            for index in sorted_indices[:10]
+                        ]
+                        
+                    # mean interpolation to remove outliers
+                    feature_map = x[1:, :, :].permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
+                    feature_map = self.mean_interpolation(feature_map, outlier_index)
+                    patch_token = feature_map.reshape(B, self.width, feat_w * feat_h).permute(2, 0, 1)
+                    x = torch.cat((x[:1, ...], patch_token), dim=0)
+                    feats_list.append(x)
+                else:
+                    feats_list.append(x)
 
         # ablation study: refine previous features using self-self attention mechanism
         for blk in self.transformer.resblocks[-1:]:
@@ -272,9 +314,17 @@ class VisionTransformer(nn.Module):
             patch_token = x[1:, ...]
             patch_token = self.custom_attn(blk.attn, blk.ln_1(patch_token)) + self.res_cls * cls_token 
  
+        cross_feats = torch.sum(torch.stack(feats_list[self.cross_s:self.cross_e]), dim=0)
+        cross_clstoken = cross_feats[:1, ...]
+        cross_patchtoken = cross_feats[1:, ...]
+        final_block = self.transformer.resblocks[-1]
+        cross_patchtoken = self.custom_attn(
+            final_block.attn, final_block.ln_1(cross_patchtoken)
+        ) + self.res_cls * cross_clstoken
+        patch_token += cross_patchtoken
         patch_token = patch_token.permute(1, 0, 2)
         # modified to suit visualization of attn
-        if return_all:
+        if return_each:
             vis_feat = self.ln_post(patch_token) @ self.proj
         else:   
             vis_feat = self.ln_post(patch_token[:, 0, :]) @ self.proj
@@ -325,7 +375,33 @@ class VisionTransformer(nn.Module):
         assert int(w0) == patch_pos_embed.shape[-2] and int(h0) == patch_pos_embed.shape[-1]
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
         return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1)
+    
+    def mean_interpolation(self, fmap, keep_pixels):
+        # fmap: [B, C, H, W]
+        if len(keep_pixels) == 0:
+            return fmap
+        b, c, h, w = fmap.shape
+        dev = fmap.device
+        dt = fmap.dtype
+        neigh_kernel = torch.ones((c, 1, 3, 3), device=dev, dtype=dt)
+        neigh_kernel[:, :, 1, 1] = 0   # 去掉中心
 
+        xy = torch.tensor(keep_pixels, device=dev, dtype=torch.long)
+        spatial_mask = torch.ones((1, 1, h, w), device=dev, dtype=dt)
+        spatial_mask[:, :, xy[:, 0], xy[:, 1]] = 0
+        blocked_fmap = fmap * spatial_mask
+        pad_fmap = F.pad(blocked_fmap, (1, 1, 1, 1))
+        pad_mask = F.pad(spatial_mask, (1, 1, 1, 1))
+
+        neigh_sum = F.conv2d(pad_fmap, neigh_kernel, groups=c)
+        neigh_count = F.conv2d(pad_mask, neigh_kernel[:, :1], groups=1)
+        neigh_count_safe = neigh_count.clone()
+        neigh_count_safe[neigh_count_safe == 0] = 1
+        neigh_mean = neigh_sum / neigh_count_safe
+        update_geo = torch.zeros((1, 1, h, w), device=dev, dtype=dt)
+        update_geo[:, :, xy[:, 0], xy[:, 1]] = 1
+        updated_fmap = fmap * (1 - update_geo) + neigh_mean * update_geo
+        return updated_fmap
 
 class CLIP(nn.Module):
     def __init__(self,
@@ -423,18 +499,18 @@ class CLIP(nn.Module):
     def dtype(self):
         return self.visual.conv1.weight.dtype
 
-    def encode_image(self, image, return_all=False, return_attn=False):
-        return self.visual(image.type(self.dtype), return_all=return_all, return_attn=return_attn)
+    def encode_image(self, image, return_each=False, return_attn=False):
+        return self.visual(image.type(self.dtype), return_each=return_each, return_attn=return_attn)
     
-    def encode_image_vis(self, image, return_all=True, return_attn=True):
-        return self.visual(image.type(self.dtype), return_all=return_all, return_attn=return_attn)
+    def encode_image_vis(self, image, return_each=True, return_attn=True):
+        return self.visual(image.type(self.dtype), return_each=return_each, return_attn=return_attn)
 
     def encode_text(self, text):
         x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
 
         x = x + self.positional_embedding.type(self.dtype)
         x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x, return_all_attn_weights=False)
+        x = self.transformer(x, return_each_attn_weights=False)
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x).type(self.dtype)
 

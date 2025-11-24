@@ -1,0 +1,1 @@
+python eval.py --config ./configs/cfg_DATASET.py --work-dir YOUR_WORK_DIR
