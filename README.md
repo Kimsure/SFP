@@ -1,4 +1,4 @@
-# Feature Purificatrion Matters: Supressing outlier propagation for training-free open-vocabulary semantic segmentation, ICCV25
+## Feature Purificatrion Matters: Supressing outlier propagation for training-free open-vocabulary semantic segmentation, ICCV25
 
 This repository contains the code for our **ICCV 2025 highlight** paper, [Feature Purificatrion Matters: Supressing outlier propagation for training-free open-vocabulary semantic segmentation](https://openaccess.thecvf.com/content/ICCV2025/papers/Jin_Feature_Purification_Matters_Suppressing_Outlier_Propagation_for_Training-Free_Open-Vocabulary_Semantic_ICCV_2025_paper.pdf).
 
