@@ -55,10 +55,21 @@ Plase follow [SCLIP](https://github.com/wangf3014/SCLIP) and [mmsegentation_docu
 We currently provide a visualization notebook to evaluate the outler detector. You can check and verify it at [NOTEBOOK](outlier_vis.ipynb).
 
 ## Inference
-You can use the following bash scripts to evaluate our SFP. Remember adjusting your own **MODEL/DATASET PATH**. 
+You can use the following bash scripts to evaluate our SFP (on RTX4090 or other GPU devices). Remember adjusting your own **MODEL/DATASET PATH**. 
 
+Single inference 
 ```
 sh test.sh
+```
+
+Multiple inference 
+```
+sh multi_test.sh
+```
+
+Distributed inferece 
+```
+sh distribute_test.sh
 ```
 
 ### Ablations
