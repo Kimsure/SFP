@@ -82,17 +82,17 @@ We are still organizing our codes and will release the remaining parts once read
 - [x] Preprare demo for outlier detection to help other researchers
 for visualization
 
-- [x] Prepare SOM and SAE
+- [x] Prepare our proposed modules, SOF, etc.
 
-- [x] Include other outlier detection methods
+- [x] Extend our SFP via other outlier detection approaches
 
-  - [x] cls/self attn
+  - [x] cls/self attn (also employed by [SegEarth-OV](https://arxiv.org/abs/2410.01768))
 
-  - [x] L2 norm sort
+  - [x] L2 norm sort (employed by [ViT-Register](https://arxiv.org/abs/2309.16588))
+ 
+  - [x] LOF (employed by [SC-CLIP](https://arxiv.org/abs/2411.15869v2))
 
   - [ ] DBSCAN as well as other cluster methods
-
-- [ ] Prepare HAI for feature refienment
 
 ## Citations
 If you find our work useful, please cite this paper:

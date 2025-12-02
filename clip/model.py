@@ -298,6 +298,15 @@ class VisionTransformer(nn.Module):
                             ) 
                             for index in sorted_indices[:10]
                         ]
+                    elif self.pm == 'LOF':
+                        indices, LOF_scores = self.lof_pytorch(x[1:, ...].squeeze(1), n_neighbors=30, contamination=0.05)
+                        outlier_index = [
+                            (
+                                torch.div(index, feat_w, rounding_mode='trunc'), 
+                                index % feat_w
+                            )
+                            for index in indices
+                        ]
                         
                     # mean interpolation to remove outliers
                     feature_map = x[1:, :, :].permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
@@ -402,6 +411,29 @@ class VisionTransformer(nn.Module):
         update_geo[:, :, xy[:, 0], xy[:, 1]] = 1
         updated_fmap = fmap * (1 - update_geo) + neigh_mean * update_geo
         return updated_fmap
+    
+    ### lof_pytorch source code from SC-CLIP (IEEE TIP 2025), under MIT license.
+    # https://github.com/SuleBai/SC-CLIP/blob/main/clip/model.py#L208
+    def lof_pytorch(self, x, n_neighbors=30, contamination=0.05):
+        distances = torch.norm(x[:, None] - x[None, :], dim=2, p=2) ** 2
+
+        knn_distances, knn_indices = torch.topk(distances, k=n_neighbors+1, largest=False)
+        knn_distances, knn_indices = knn_distances[:, 1:], knn_indices[:, 1:]
+
+        k_distances = knn_distances[:, -1].unsqueeze(1).expand_as(knn_distances)
+        reach_distances = torch.max(knn_distances, k_distances)
+
+        LRD = n_neighbors / torch.nan_to_num(reach_distances.mean(dim=1), nan=1e-6)
+
+        LRD_ratios = LRD[knn_indices] / LRD.unsqueeze(1)
+        LOF_scores = LRD_ratios.mean(dim=1)
+
+        threshold = torch.quantile(LOF_scores.to(torch.float32), 1 - contamination)
+
+        outlier_mask = LOF_scores > threshold
+        outlier_indices = torch.where(outlier_mask)[0]
+
+        return outlier_indices, LOF_scores
 
 class CLIP(nn.Module):
     def __init__(self,

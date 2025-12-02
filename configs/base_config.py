@@ -4,7 +4,7 @@ model = dict(
     clip_path='ViT-B/16',
     cross_s=3,
     cross_e=11,
-    pm='SOM',  # ['SOM','L2']
+    pm='SOM',  # ['SOM','L2', 'LOF']
     purify=True, # whether to use outlier detection
     res_cls=0.3
 )
