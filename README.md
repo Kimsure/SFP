@@ -37,7 +37,7 @@ conda create -n sfp_ovss python=3.9
 conda activate sfp_ovss
 pip install torch==2.0.0 torchvision==0.15.1
 pip install scikit-learn scikit-image
-pip install mim
+pip install mim # if error occurs when installing mim, please try pip install openmim
 mim install mmcv==2.0.1 mmengine==0.8.4 mmsegmentation==1.1.1
 pip install ftfy regex numpy==1.26.4 yapf==0.40.1
 ```
