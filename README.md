@@ -37,9 +37,20 @@ conda create -n sfp_ovss python=3.9
 conda activate sfp_ovss
 pip install torch==2.0.0 torchvision==0.15.1
 pip install scikit-learn scikit-image
-pip install mim # if error occurs when installing mim, please try pip install openmim
+pip install mim 
 mim install mmcv==2.0.1 mmengine==0.8.4 mmsegmentation==1.1.1
 pip install ftfy regex numpy==1.26.4 yapf==0.40.1
+```
+
+If some errors occur, please try the following operation based on my experimence.
+
+Error occurs when installing mim
+```
+pip install openmim 
+```
+Error occurs when opencv version is complicated with mmcv framework.
+```
+pip install opencv-python==4.10.0.84 
 ```
 
 ## Datasets

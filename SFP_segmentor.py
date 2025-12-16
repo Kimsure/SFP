@@ -73,12 +73,6 @@ class SFPForSegmentation(BaseSegmentor):
         image_features = self.net.encode_image(img, return_each=True)
         image_features /= image_features.norm(dim=-1, keepdim=True)
         logits = image_features @ self.query_features.T
-        # print("logits", logits.shape)
-        # # ! modified to use avg norm img_features
-        # logits_last = logits[-1] # 最后一层的分割logit
-        # logits_last[logits_last < logits_last.amax(0, keepdim=True) * 0.4] = 0
-        # logits = logits_last + logits[:-1].mean(0)
-        # logits = logits.unsqueeze(0)
         
         patch_size = self.net.visual.patch_size
         w, h = img[0].shape[-2] // patch_size, img[0].shape[-1] // patch_size
