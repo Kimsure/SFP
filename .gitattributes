@@ -1,0 +1,3 @@
+*.ipynb linguist-language=jupyter notebook
+*.py linguist-language=python
+*.sh linguist-language=shell
