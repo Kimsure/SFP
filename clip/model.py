@@ -355,13 +355,14 @@ class VisionTransformer(nn.Module):
         patch_token += fused_patch
         
         x = torch.cat((cls_token, patch_token), dim=0)
+        x = x.permute(1, 0, 2)
         patch_token = patch_token.permute(1, 0, 2)
         
         # Prepare output
         if return_each:
             vis_feat = self.ln_post(patch_token) @ self.proj
         else:   
-            vis_feat = self.ln_post(patch_token[:, 0, :]) @ self.proj
+            vis_feat = self.ln_post(x[:, 0, :]) @ self.proj
         if return_attn:
             attention_weights = torch.stack(attention_weights, dim=0)
             return vis_feat, attention_weights
