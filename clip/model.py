@@ -312,25 +312,42 @@ class VisionTransformer(nn.Module):
                     feature_map = x[1:, :, :].permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
                     feature_map = self.mean_interpolation(feature_map, outlier_index)
                     patch_token = feature_map.reshape(B, self.width, feat_w * feat_h).permute(2, 0, 1)
-                    x = torch.cat((x[:1, ...], patch_token), dim=0)
                     feats_list.append(x)
                 else:
                     feats_list.append(x)
 
+        attn_maps /= (len(self.transformer.resblocks) - 1)
+        attn_maps = attn_maps.mean(dim=1)  # average over heads
+        feats = feats_list[8][1:, ...].clone()
+        feats = feats.permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
+        feats = self.mean_interpolation(feats, outlier_index)
+        feats = feats.reshape(B, self.width, feat_w * feat_h).permute(2, 0, 1)
+        feats = feats / feats.norm(dim=2, keepdim=True)
+        before_simi = torch.matmul(feats.permute(1, 0, 2), feats.permute(1, 2, 0))
+        before_simi[before_simi < 0.4] = 0.0
+        patch_token = self.adaptively_aggregate(patch_token, before_simi)
+
         # ablation study: refine previous features using self-self attention mechanism
         for blk in self.transformer.resblocks[-1:]:
             cls_token = x[:1, ...]
-            patch_token = x[1:, ...]
-            patch_token = self.custom_attn(blk.attn, blk.ln_1(patch_token)) + self.res_cls * cls_token 
+            patch_token = self.custom_attn(blk.attn, blk.ln_1(patch_token), before_simi) + self.res_cls * cls_token 
+            
+        feats = feats_list[3][1:, ...].clone()
+        feats = feats / feats.norm(dim=2, keepdim=True)
+        after_simi = torch.matmul(feats.permute(1, 0, 2), feats.permute(1, 2, 0))
+        after_simi[after_simi < 0.4] = 0.0    
+        patch_token = self.adaptively_aggregate(patch_token, after_simi)
  
         cross_feats = torch.sum(torch.stack(feats_list[self.cross_s:self.cross_e]), dim=0)
         cross_clstoken = cross_feats[:1, ...]
         cross_patchtoken = cross_feats[1:, ...]
         final_block = self.transformer.resblocks[-1]
         cross_patchtoken = self.custom_attn(
-            final_block.attn, final_block.ln_1(cross_patchtoken)
+            final_block.attn, final_block.ln_1(cross_patchtoken), before_simi
         ) + self.res_cls * cross_clstoken
+        cross_patchtoken = self.adaptively_aggregate(cross_patchtoken, after_simi)
         patch_token += cross_patchtoken
+        x = torch.cat((cls_token, patch_token), dim=0)
         patch_token = patch_token.permute(1, 0, 2)
         # modified to suit visualization of attn
         if return_each:
@@ -343,7 +360,7 @@ class VisionTransformer(nn.Module):
         else:
             return vis_feat
     
-    def custom_attn(self, attn_layer, x: torch.Tensor):
+    def custom_attn(self, attn_layer, x: torch.Tensor, sim):
         num_heads = attn_layer.num_heads
         _, bsz, embed_dim = x.size()
         head_dim = embed_dim // num_heads
@@ -356,8 +373,11 @@ class VisionTransformer(nn.Module):
 
         q_attn = torch.bmm(q, q.transpose(1, 2)) * scale
         k_attn = torch.bmm(k, k.transpose(1, 2)) * scale
-        attn_weights = F.softmax(k_attn, dim=-1) + F.softmax(q_attn, dim=-1)
-        attn_weights /= 2
+        sim = (sim - torch.mean(sim)) * 3.0
+        sim[sim < 0.0] = float('-inf')
+        sim = sim.repeat(num_heads, 1, 1)
+        attn_weights = F.softmax(k_attn, dim=-1) + F.softmax(q_attn, dim=-1) + F.softmax(sim, dim=-1)
+        attn_weights /= 3
 
         attn_output = torch.bmm(attn_weights, v)
         attn_output = attn_output.transpose(0, 1).contiguous().view(-1, bsz, embed_dim)
@@ -411,6 +431,11 @@ class VisionTransformer(nn.Module):
         update_geo[:, :, xy[:, 0], xy[:, 1]] = 1
         updated_fmap = fmap * (1 - update_geo) + neigh_mean * update_geo
         return updated_fmap
+    
+    def adaptively_aggregate(self, feat: torch.Tensor, sim: torch.Tensor):
+        sim_normalized = sim / (sim.sum(dim=-1, keepdim=True) + 1e-6)
+        feat_output = torch.matmul(sim_normalized, feat.permute(1, 0, 2))
+        return feat_output.permute(1, 0, 2)
     
     ### lof_pytorch source code from SC-CLIP (IEEE TIP 2025), under MIT license.
     # https://github.com/SuleBai/SC-CLIP/blob/main/clip/model.py#L208

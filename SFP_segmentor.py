@@ -45,7 +45,7 @@ class SFPForSegmentation(BaseSegmentor):
         query_features = []
         with torch.no_grad():
             for qw in query_words:
-                query = clip.tokenize([temp(qw) for temp in car_template]).to(device)
+                query = clip.tokenize([temp(qw) for temp in openai_imagenet_template]).to(device)
                 feature = self.net.encode_text(query)
                 feature /= feature.norm(dim=-1, keepdim=True)
                 feature = feature.mean(dim=0)

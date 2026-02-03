@@ -9,7 +9,7 @@ trafficsign
 vegetation
 terrain
 sky
-person
+people
 rider
 car
 truck

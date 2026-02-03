@@ -58,7 +58,8 @@ def main():
     cfg = Config.fromfile(args.config)
     cfg.launcher = args.launcher
     cfg.work_dir = args.work_dir
-
+    # if you want to save segmentation maps, open this line
+    # trigger_visualization_hook(cfg, args)
     runner = Runner.from_cfg(cfg)
     runner.test()
 
