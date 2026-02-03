@@ -255,108 +255,116 @@ class VisionTransformer(nn.Module):
         x = self.ln_pre(x)
            
         x = x.permute(1, 0, 2)
-        feats_list = []
-        attn_list = []
-        attn_maps = 0
+        
+        # Collect intermediate representations through the network
+        hidden_states = []
+        attention_weights = []
+        accumulated_attn = 0
+        
         for idx, blk in enumerate(self.transformer.resblocks[:-1], start=1):
-            x, attn_weight = blk(x)
-            attn_weight[:,:,0,1:] *= self.res_cls * self.res_scale
-            feats_list.append(x)
-            attn_list.append(attn_weight)
-            attn_maps += attn_weight[:,:,1:,1:]
+            x, attn_map = blk(x)
+            attn_map[:,:,0,1:] *= self.res_cls * self.res_scale
+            hidden_states.append(x)
+            attention_weights.append(attn_map)
+            accumulated_attn += attn_map[:,:,1:,1:]
+            
             if idx == len(self.transformer.resblocks) - 1:
                 if self.purify:
-                    if self.pm == 'SOM': # outlier detector -- SOM (to simplify, only apply to last layer, same function)
-                        attn_weight = attn_weight.squeeze(0)  # remove batch dim
-                        attn_weight = attn_weight.mean(dim=0)  # average over heads
-                        # print("attn_weight", attn_weight.shape)
-                        cls_attn = attn_weight[0, 1:]
-                        self_attn = torch.diag(attn_weight[1:, 1:])
-                        important_mask = cls_attn > self_attn        # CLS > self
+                    if self.pm == 'SOM':
+                        attn_map = attn_map.squeeze(0)
+                        attn_map = attn_map.mean(dim=0)
+                        cls_to_patch = attn_map[0, 1:]
+                        patch_self = torch.diag(attn_map[1:, 1:])
+                        salient_mask = cls_to_patch > patch_self
 
-                        important_scores = cls_attn[important_mask]
-                        important_indices = torch.nonzero(important_mask, as_tuple=False).squeeze(1)
-                        sorted_scores, sort_idx = torch.sort(important_scores, descending=True)
-                        top_patch_indices = important_indices[sort_idx[:10]]
+                        salient_values = cls_to_patch[salient_mask]
+                        salient_locs = torch.nonzero(salient_mask, as_tuple=False).squeeze(1)
+                        ordered_values, order_idx = torch.sort(salient_values, descending=True)
+                        selected_patches = salient_locs[order_idx[:10]]
 
                         outlier_index = [
                             (
-                                torch.div(idx.detach().cpu(), feat_w, rounding_mode='trunc'),
-                                idx.detach().cpu() % feat_w
+                                torch.div(loc.detach().cpu(), feat_w, rounding_mode='trunc'),
+                                loc.detach().cpu() % feat_w
                             )
-                            for idx in top_patch_indices
+                            for loc in selected_patches
                         ]
-                    elif self.pm == 'L2': # outlier detector -- L2 norm sort
+                    elif self.pm == 'L2':
                         cls_token = x[:1, ...]
-                        # patch_token = x.clone()
-                        norms = torch.norm(x[1:, ...].squeeze(1), dim=1)
-                        sorted_norms, sorted_indices = torch.sort(norms, descending=True)
+                        patch_norms = torch.norm(x[1:, ...].squeeze(1), dim=1)
+                        ordered_norms, norm_order = torch.sort(patch_norms, descending=True)
                         outlier_index = [
                             (
-                                torch.div(index.detach().cpu(), feat_w, rounding_mode='trunc'), 
-                                index.detach().cpu() % feat_w
+                                torch.div(pos.detach().cpu(), feat_w, rounding_mode='trunc'), 
+                                pos.detach().cpu() % feat_w
                             ) 
-                            for index in sorted_indices[:10]
+                            for pos in norm_order[:10]
                         ]
                     elif self.pm == 'LOF':
                         indices, LOF_scores = self.lof_pytorch(x[1:, ...].squeeze(1), n_neighbors=30, contamination=0.05)
                         outlier_index = [
                             (
-                                torch.div(index, feat_w, rounding_mode='trunc'), 
-                                index % feat_w
+                                torch.div(loc, feat_w, rounding_mode='trunc'), 
+                                loc % feat_w
                             )
-                            for index in indices
+                            for loc in indices
                         ]
                         
-                    # mean interpolation to remove outliers
-                    feature_map = x[1:, :, :].permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
-                    feature_map = self.mean_interpolation(feature_map, outlier_index)
-                    patch_token = feature_map.reshape(B, self.width, feat_w * feat_h).permute(2, 0, 1)
-                    feats_list.append(x)
+                    # Apply spatial smoothing to suppress anomalous regions
+                    spatial_feat = x[1:, :, :].permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
+                    spatial_feat = self.mean_interpolation(spatial_feat, outlier_index)
+                    patch_token = spatial_feat.reshape(B, self.width, feat_w * feat_h).permute(2, 0, 1)
+                    hidden_states.append(x)
                 else:
-                    feats_list.append(x)
+                    hidden_states.append(x)
 
-        attn_maps /= (len(self.transformer.resblocks) - 1)
-        attn_maps = attn_maps.mean(dim=1)  # average over heads
-        feats = feats_list[8][1:, ...].clone()
-        feats = feats.permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
-        feats = self.mean_interpolation(feats, outlier_index)
-        feats = feats.reshape(B, self.width, feat_w * feat_h).permute(2, 0, 1)
-        feats = feats / feats.norm(dim=2, keepdim=True)
-        before_simi = torch.matmul(feats.permute(1, 0, 2), feats.permute(1, 2, 0))
-        before_simi[before_simi < 0.4] = 0.0
-        patch_token = self.adaptively_aggregate(patch_token, before_simi)
+        accumulated_attn /= (len(self.transformer.resblocks) - 1)
+        accumulated_attn = accumulated_attn.mean(dim=1)
+        
+        # Compute pre-adjustment similarity matrix
+        ref_feat = hidden_states[8][1:, ...].clone()
+        ref_feat = ref_feat.permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
+        ref_feat = self.mean_interpolation(ref_feat, outlier_index)
+        ref_feat = ref_feat.reshape(B, self.width, feat_w * feat_h).permute(2, 0, 1)
+        ref_feat = ref_feat / ref_feat.norm(dim=2, keepdim=True)
+        pre_sim = torch.matmul(ref_feat.permute(1, 0, 2), ref_feat.permute(1, 2, 0))
+        pre_sim[pre_sim < 0.4] = 0.0
+        patch_token = self.adaptively_aggregate(patch_token, pre_sim)
 
-        # ablation study: refine previous features using self-self attention mechanism
+        # Refine with final transformer block
         for blk in self.transformer.resblocks[-1:]:
             cls_token = x[:1, ...]
-            patch_token = self.custom_attn(blk.attn, blk.ln_1(patch_token), before_simi) + self.res_cls * cls_token 
+            patch_token = self.custom_attn(blk.attn, blk.ln_1(patch_token), pre_sim) + self.res_cls * cls_token 
             
-        feats = feats_list[3][1:, ...].clone()
-        feats = feats / feats.norm(dim=2, keepdim=True)
-        after_simi = torch.matmul(feats.permute(1, 0, 2), feats.permute(1, 2, 0))
-        after_simi[after_simi < 0.4] = 0.0    
-        patch_token = self.adaptively_aggregate(patch_token, after_simi)
+        # Compute post-adjustment similarity matrix
+        aux_feat = hidden_states[3][1:, ...].clone()
+        aux_feat = aux_feat / aux_feat.norm(dim=2, keepdim=True)
+        post_sim = torch.matmul(aux_feat.permute(1, 0, 2), aux_feat.permute(1, 2, 0))
+        post_sim[post_sim < 0.4] = 0.0    
+        patch_token = self.adaptively_aggregate(patch_token, post_sim)
  
-        cross_feats = torch.sum(torch.stack(feats_list[self.cross_s:self.cross_e]), dim=0)
-        cross_clstoken = cross_feats[:1, ...]
-        cross_patchtoken = cross_feats[1:, ...]
-        final_block = self.transformer.resblocks[-1]
-        cross_patchtoken = self.custom_attn(
-            final_block.attn, final_block.ln_1(cross_patchtoken), before_simi
-        ) + self.res_cls * cross_clstoken
-        cross_patchtoken = self.adaptively_aggregate(cross_patchtoken, after_simi)
-        patch_token += cross_patchtoken
+        # Aggregate multi-layer features
+        fused_repr = torch.sum(torch.stack(hidden_states[self.cross_s:self.cross_e]), dim=0)
+        fused_cls = fused_repr[:1, ...]
+        fused_patch = fused_repr[1:, ...]
+        last_blk = self.transformer.resblocks[-1]
+        fused_patch = self.custom_attn(
+            last_blk.attn, last_blk.ln_1(fused_patch), pre_sim
+        ) + self.res_cls * fused_cls
+        fused_patch = self.adaptively_aggregate(fused_patch, post_sim)
+        patch_token += fused_patch
+        
         x = torch.cat((cls_token, patch_token), dim=0)
         patch_token = patch_token.permute(1, 0, 2)
-        # modified to suit visualization of attn
+        
+        # Prepare output
         if return_each:
             vis_feat = self.ln_post(patch_token) @ self.proj
         else:   
             vis_feat = self.ln_post(patch_token[:, 0, :]) @ self.proj
         if return_attn:
-            attn_list = torch.stack(attn_list, dim=0)
-            return vis_feat, attn_list
+            attention_weights = torch.stack(attention_weights, dim=0)
+            return vis_feat, attention_weights
         else:
             return vis_feat
     
