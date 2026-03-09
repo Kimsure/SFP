@@ -229,8 +229,6 @@ class VisionTransformer(nn.Module):
         self.res_cls = 0.3
         self.res_scale = 5.0
         self.thres = 0.4
-        self.cross_s = 3
-        self.cross_e = 10
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=width, kernel_size=patch_size, stride=patch_size, bias=False)
         scale = width ** -0.5
         self.class_embedding = nn.Parameter(scale * torch.randn(width))
@@ -276,12 +274,10 @@ class VisionTransformer(nn.Module):
                         cls_to_patch = attn_map[0, 1:]
                         patch_self = torch.diag(attn_map[1:, 1:])
                         salient_mask = cls_to_patch > patch_self
-
                         salient_values = cls_to_patch[salient_mask]
                         salient_locs = torch.nonzero(salient_mask, as_tuple=False).squeeze(1)
                         ordered_values, order_idx = torch.sort(salient_values, descending=True)
                         selected_patches = salient_locs[order_idx[:10]]
-
                         outlier_index = [
                             (
                                 torch.div(loc.detach().cpu(), feat_w, rounding_mode='trunc'),
@@ -309,7 +305,6 @@ class VisionTransformer(nn.Module):
                             )
                             for loc in indices
                         ]
-                        
                     # Apply spatial smoothing to suppress anomalous regions
                     spatial_feat = x[1:, :, :].permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
                     spatial_feat = self.mean_interpolation(spatial_feat, outlier_index)
@@ -320,8 +315,7 @@ class VisionTransformer(nn.Module):
 
         accumulated_attn /= (len(self.transformer.resblocks) - 1)
         accumulated_attn = accumulated_attn.mean(dim=1)
-        
-        # Compute pre-adjustment similarity matrix
+        patch_state = torch.sum(torch.stack(hidden_states[3:10]), dim=0)
         ref_feat = hidden_states[8][1:, ...].clone()
         ref_feat = ref_feat.permute(1, 2, 0).reshape(B, self.width, feat_w, feat_h)
         ref_feat = self.mean_interpolation(ref_feat, outlier_index)
@@ -330,30 +324,22 @@ class VisionTransformer(nn.Module):
         pre_sim = torch.matmul(ref_feat.permute(1, 0, 2), ref_feat.permute(1, 2, 0))
         pre_sim[pre_sim < 0.4] = 0.0
         patch_token = self.adaptively_aggregate(patch_token, pre_sim)
-
-        # Refine with final transformer block
         for blk in self.transformer.resblocks[-1:]:
             cls_token = x[:1, ...]
             patch_token = self.custom_attn(blk.attn, blk.ln_1(patch_token), pre_sim) + self.res_cls * cls_token 
-            
-        # Compute post-adjustment similarity matrix
         aux_feat = hidden_states[3][1:, ...].clone()
         aux_feat = aux_feat / aux_feat.norm(dim=2, keepdim=True)
         post_sim = torch.matmul(aux_feat.permute(1, 0, 2), aux_feat.permute(1, 2, 0))
         post_sim[post_sim < 0.4] = 0.0    
         patch_token = self.adaptively_aggregate(patch_token, post_sim)
- 
-        # Aggregate multi-layer features
-        fused_repr = torch.sum(torch.stack(hidden_states[self.cross_s:self.cross_e]), dim=0)
-        fused_cls = fused_repr[:1, ...]
-        fused_patch = fused_repr[1:, ...]
-        last_blk = self.transformer.resblocks[-1]
-        fused_patch = self.custom_attn(
-            last_blk.attn, last_blk.ln_1(fused_patch), pre_sim
-        ) + self.res_cls * fused_cls
-        fused_patch = self.adaptively_aggregate(fused_patch, post_sim)
-        patch_token += fused_patch
         
+        last_blk = self.transformer.resblocks[-1]
+        patch_state = self.sinkhorn_attn(
+            last_blk.attn, last_blk.ln_1(patch_state[1:, ...]), pre_sim
+        ) + self.res_cls * patch_state[:1, ...]
+        patch_state = self.adaptively_aggregate(patch_state, post_sim)
+        patch_token += patch_state
+
         x = torch.cat((cls_token, patch_token), dim=0)
         x = x.permute(1, 0, 2)
         patch_token = patch_token.permute(1, 0, 2)
@@ -374,12 +360,10 @@ class VisionTransformer(nn.Module):
         _, bsz, embed_dim = x.size()
         head_dim = embed_dim // num_heads
         scale = head_dim ** -0.5
-
         q, k, v = F.linear(x, attn_layer.in_proj_weight, attn_layer.in_proj_bias).chunk(3, dim=-1)
         q = q.contiguous().view(-1, bsz * num_heads, head_dim).transpose(0, 1)
         k = k.contiguous().view(-1, bsz * num_heads, head_dim).transpose(0, 1)
         v = v.contiguous().view(-1, bsz * num_heads, head_dim).transpose(0, 1)
-
         q_attn = torch.bmm(q, q.transpose(1, 2)) * scale
         k_attn = torch.bmm(k, k.transpose(1, 2)) * scale
         sim = (sim - torch.mean(sim)) * 3.0
@@ -387,11 +371,26 @@ class VisionTransformer(nn.Module):
         sim = sim.repeat(num_heads, 1, 1)
         attn_weights = F.softmax(k_attn, dim=-1) + F.softmax(q_attn, dim=-1) + F.softmax(sim, dim=-1)
         attn_weights /= 3
-
         attn_output = torch.bmm(attn_weights, v)
         attn_output = attn_output.transpose(0, 1).contiguous().view(-1, bsz, embed_dim)
         attn_output = attn_layer.out_proj(attn_output)
 
+        return attn_output
+
+    def sinkhorn_attn(self, attn_layer, x: torch.Tensor, accumulated_attn):
+        num_heads = attn_layer.num_heads
+        _, bsz, embed_dim = x.size()
+        head_dim = embed_dim // num_heads
+        scale = head_dim ** -0.5
+        _, _, v = F.linear(x, attn_layer.in_proj_weight, attn_layer.in_proj_bias).chunk(3, dim=-1)
+        v = v.contiguous().view(-1, bsz * num_heads, head_dim).transpose(0, 1)
+        accumulated_attn = (accumulated_attn - torch.mean(accumulated_attn)) * 3.0
+        accumulated_attn[accumulated_attn < 0.0] = float('-inf')
+        accumulated_attn = accumulated_attn.repeat(num_heads, 1, 1)
+        attn_weights = F.softmax(accumulated_attn, dim=-1)
+        attn_output = torch.bmm(attn_weights, v)
+        attn_output = attn_output.transpose(0, 1).contiguous().view(-1, bsz, embed_dim)
+        attn_output = attn_layer.out_proj(attn_output)
         return attn_output
 
     def interpolate_pos_encoding(self, x, w, h):
