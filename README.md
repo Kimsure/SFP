@@ -38,7 +38,7 @@ conda activate sfp_ovss
 pip install torch==2.0.0 torchvision==0.15.1
 pip install scikit-learn scikit-image
 pip install mim 
-mim install mmcv==2.0.1 mmengine==0.8.4 mmsegmentation==1.1.1
+mim install mmcv==2.0.1 mmengine==0.8.4 mmsegmentation==1.1.1 # If you want to visualize the class names in the segmentation map, try to update mmsegmentation>=1.2.2
 pip install ftfy regex numpy==1.26.4 yapf==0.40.1
 ```
 
