@@ -1,0 +1,1 @@
+python eval.py --config ./configs/cfg_city_scapes_local.py --work-dir ./output_vis
