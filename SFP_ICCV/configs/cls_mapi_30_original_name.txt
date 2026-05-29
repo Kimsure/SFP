@@ -1,0 +1,31 @@
+road
+sidewalk
+building
+wall
+bridge
+tunnel
+traffic sign
+traffic light
+pole
+fence
+sky
+vegetation
+terrain
+water
+snow
+sand
+person
+rider
+car
+truck
+bus
+train
+bicycle
+motorcycle
+animal
+signboard
+railway
+boat
+chair
+trash can
+

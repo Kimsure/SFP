@@ -1,0 +1,11 @@
+road, roadway
+sidewalk, walkway, pavement
+barrier, traffic barrier, barricade
+police vehicle, police car, patrol SUV, police van
+work vehicle, construction truck, work truck
+police officer, traffic cop, policeman
+worker, person, people, human, man
+cone, orange safety cone, traffic cones
+arrow board, electronic arrow board
+ttc sign, temporary traffic control sign, warning sign
+

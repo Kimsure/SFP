@@ -4,6 +4,14 @@ This repository contains the code for our **ICCV 2025 highlight** paper, [Featur
 
 [![project](https://img.shields.io/badge/Project-SFP-green)](https://github.com/Kimsure/SFP)    [![arXiv](https://img.shields.io/badge/Paper-ICCV-b31b1b)](https://openaccess.thecvf.com/content/ICCV2025/papers/Jin_Feature_Purification_Matters_Suppressing_Outlier_Propagation_for_Training-Free_Open-Vocabulary_Semantic_ICCV_2025_paper.pdf) <a href="#LICENSE--citation"><img alt="License: MIT" src="https://img.shields.io/badge/LICENSE-MIT-blue.svg"/></a>
 
+## News
+
+🚩 Updates
+
+- 🔥🔥 Our follow-up work, [**VIP: Visual-guided Prompt Evolution for Efficient Dense Vision-Language Inference**](https://arxiv.org/abs/2605.12325), has been accepted to **ICML 2026**. This work introduces DINOv3-equipped dino.txt instead of CLIP to solve OVSS, and identify the limited semantic capacity canonical name to anchor the predicted results.
+
+- 🔥 SFP currently supports the generated alias and soft aggregation in [**VIP**](https://arxiv.org/abs/2605.12325) to enhance the semantical express of CLIP. It also supports the evaluation on OVDG benchmarks introduced by  [**S2_Corr**](https://arxiv.org/abs/2602.18853) of CVPR 2026. Check [configs](https://github.com/Kimsure/SFP/tree/main/SFP_ICCV/configs) for details.
+
 ## Abstract
 
 Training-free open-vocabulary semantic segmentation has advanced with vision-language models like CLIP, which exhibit strong zero-shot abilities. However, CLIP’s attention mechanism often wrongly emphasises specific image tokens, namely outliers, which results in irrelevant over-activation. Existing approaches struggle with these outliers that arise in intermediate layers and propagate through the model, ultimately degrading spatial perception. In this paper, we propose a Self-adaptive Feature Purifier framework (SFP) to suppress propagated outliers and enhance semantic representations for open-vocabulary semantic segmentation. Specifically, based on an in-depth analysis of attention responses between image and class tokens, we design a selfadaptive outlier mitigator to detect and mitigate outliers at each layer for propagated feature purification. In addition, we introduce a semantic-aware attention enhancer to augment attention intensity in semantically relevant regions, which strengthens the purified feature to focus on objects. Further, we introduce a hierarchical attention integrator to aggregate multi-layer attention maps to refine spatially coherent feature representations for final segmentation. Our proposed SFP enables robust outlier suppression and object-centric feature representation, leading to a more precise segmentation. Extensive experiments show that our method achieves state-of-the-art performance and surpasses existing methods by an average of 4.6% mIoU on eight segmentation benchmarks.

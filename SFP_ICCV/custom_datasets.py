@@ -4,6 +4,66 @@ import mmengine.fileio as fileio
 from mmseg.registry import DATASETS
 from mmseg.datasets import BaseSegDataset
 
+CITYSCAPES_19_METAINFO = dict(
+    classes=(
+        'road', 'sidewalk', 'building', 'wall', 'fence', 'pole',
+        'traffic light', 'traffic sign', 'vegetation', 'terrain', 'sky',
+        'person', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',
+        'bicycle'),
+    palette=[[128, 64, 128], [244, 35, 232], [70, 70, 70],
+             [102, 102, 156], [190, 153, 153], [153, 153, 153],
+             [250, 170, 30], [220, 220, 0], [107, 142, 35],
+             [152, 251, 152], [70, 130, 180], [220, 20, 60], [255, 0, 0],
+             [0, 0, 142], [0, 0, 70], [0, 60, 100], [0, 80, 100],
+             [0, 0, 230], [119, 11, 32]])
+
+INPAINT_41_METAINFO = dict(
+    classes=(
+        'road', 'sidewalk', 'building', 'wall', 'fence', 'pole',
+        'traffic light', 'traffic sign', 'vegetation', 'terrain', 'sky',
+        'person', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',
+        'bicycle', 'bag', 'ball', 'barrel', 'bench', 'bird', 'bottle',
+        'cart', 'cat', 'chair', 'cow', 'deer', 'dog', 'drone',
+        'elephant', 'hat', 'horse', 'robot', 'sheep', 'table', 'toy',
+        'umbrella', 'zebra'),
+    palette=[[128, 64, 128], [244, 35, 232], [70, 70, 70],
+             [102, 102, 156], [190, 153, 153], [153, 153, 153],
+             [250, 170, 30], [220, 220, 0], [107, 142, 35],
+             [152, 251, 152], [70, 130, 180], [220, 20, 60], [255, 0, 0],
+             [0, 0, 142], [0, 0, 70], [0, 60, 100], [0, 80, 100],
+             [0, 0, 230], [119, 11, 32], [242, 172, 36], [142, 84, 242],
+             [29, 198, 42], [198, 69, 97], [36, 140, 242], [210, 242, 84],
+             [183, 29, 198], [69, 198, 149], [242, 103, 36], [90, 84, 242],
+             [73, 198, 29], [198, 69, 140], [36, 209, 242],
+             [242, 221, 84], [127, 29, 198], [69, 198, 106],
+             [242, 36, 38], [84, 132, 242], [129, 198, 29],
+             [198, 69, 183], [36, 242, 206], [242, 168, 84]])
+
+MAPILLARY_30_METAINFO = dict(
+    classes=('road', 'sidewalk', 'building', 'wall', 'bridge', 'tunnel',
+             'traffic sign', 'traffic light', 'pole', 'fence', 'sky',
+             'vegetation', 'terrain', 'water', 'snow', 'sand', 'person',
+             'rider', 'car', 'truck', 'bus', 'train', 'bicycle',
+             'motorcycle', 'animal', 'signboard', 'railway', 'boat',
+             'chair', 'trash can'),
+    palette=[[128, 64, 128], [244, 35, 232], [70, 70, 70],
+             [102, 102, 156], [150, 100, 100], [150, 120, 90],
+             [220, 220, 0], [250, 170, 30], [153, 153, 153],
+             [190, 153, 153], [70, 130, 180], [107, 142, 35],
+             [152, 251, 152], [0, 170, 255], [190, 255, 255],
+             [245, 240, 170], [220, 20, 60], [255, 0, 0], [0, 0, 142],
+             [0, 0, 70], [0, 60, 100], [0, 80, 100], [119, 11, 32],
+             [0, 0, 230], [100, 170, 30], [255, 200, 0], [140, 150, 230],
+             [0, 100, 180], [160, 80, 45], [90, 90, 90]])
+
+ROADWORK_10_METAINFO = dict(
+    classes=('road', 'sidewalk', 'barrier', 'police vehicle',
+             'work vehicle', 'police officer', 'worker', 'cone',
+             'arrow board', 'ttc sign'),
+    palette=[[128, 64, 128], [244, 35, 232], [246, 116, 185],
+             [255, 68, 51], [255, 104, 66], [184, 107, 35],
+             [205, 135, 29], [30, 119, 179], [241, 71, 14], [254, 139, 32]])
+
 @DATASETS.register_module()
 class PascalVOC20Dataset(BaseSegDataset):
     """Pascal VOC dataset.
@@ -157,3 +217,169 @@ class PascalContext59Dataset(BaseSegDataset):
             ann_file=ann_file,
             reduce_zero_label=reduce_zero_label,
             **kwargs)
+
+
+@DATASETS.register_module()
+class Cityscapes19LikeDataset(BaseSegDataset):
+    """Cityscapes-19 style dataset for cross-domain evaluation."""
+
+    METAINFO = CITYSCAPES_19_METAINFO
+
+    def __init__(self,
+                 img_suffix='.png',
+                 seg_map_suffix='.png',
+                 reduce_zero_label=False,
+                 ignore_index=255,
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            reduce_zero_label=reduce_zero_label,
+            ignore_index=ignore_index,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class ACDCCityscapes19Dataset(Cityscapes19LikeDataset):
+    """ACDC dataset prepared in s2_corr layout."""
+
+    def __init__(self,
+                 img_suffix='_rgb_anon.png',
+                 seg_map_suffix='_gt.png',
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class BDD100KCityscapes19Dataset(Cityscapes19LikeDataset):
+    """BDD100K semantic segmentation dataset in train-id format."""
+
+    def __init__(self,
+                 img_suffix='.jpg',
+                 seg_map_suffix='_train_id.png',
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class Inpaint41Dataset(BaseSegDataset):
+    """41-class inpaint dataset used by ACDC/BDD open-vocabulary evaluation."""
+
+    METAINFO = INPAINT_41_METAINFO
+
+    def __init__(self,
+                 img_suffix='.png',
+                 seg_map_suffix='_gt.png',
+                 reduce_zero_label=False,
+                 ignore_index=255,
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            reduce_zero_label=reduce_zero_label,
+            ignore_index=ignore_index,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class ACDCInpaint41Dataset(Inpaint41Dataset):
+    """ACDC inpaint-41 dataset."""
+
+
+@DATASETS.register_module()
+class BDD100KInpaint41Dataset(Inpaint41Dataset):
+    """BDD100K inpaint-41 dataset."""
+
+
+@DATASETS.register_module()
+class MapillaryCityscapes19Dataset(Cityscapes19LikeDataset):
+    """Mapillary dataset remapped to Cityscapes-19 labels."""
+
+    def __init__(self,
+                 img_suffix='.jpg',
+                 seg_map_suffix='_labelTrainIds.png',
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class Mapillary30Dataset(BaseSegDataset):
+    """Mapillary dataset remapped to 30 open-vocabulary classes."""
+
+    METAINFO = MAPILLARY_30_METAINFO
+
+    def __init__(self,
+                 img_suffix='.jpg',
+                 seg_map_suffix='.png',
+                 reduce_zero_label=False,
+                 ignore_index=255,
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            reduce_zero_label=reduce_zero_label,
+            ignore_index=ignore_index,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class Roadwork10Dataset(BaseSegDataset):
+    """ROADWork dataset with recursive image/label matching."""
+
+    METAINFO = ROADWORK_10_METAINFO
+    IMG_SUFFIXES = ('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff')
+
+    def __init__(self,
+                 img_suffix='.png',
+                 seg_map_suffix='_trainIds.png',
+                 reduce_zero_label=False,
+                 ignore_index=255,
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            reduce_zero_label=reduce_zero_label,
+            ignore_index=ignore_index,
+            **kwargs)
+
+    def load_data_list(self):
+        data_list = []
+        img_dir = self.data_prefix.get('img_path', None)
+        ann_dir = self.data_prefix.get('seg_map_path', None)
+        suffix_len = len(self.seg_map_suffix)
+
+        for seg_map in fileio.list_dir_or_file(
+                dir_path=ann_dir,
+                list_dir=False,
+                suffix=self.seg_map_suffix,
+                recursive=True,
+                backend_args=self.backend_args):
+            rel_stem = seg_map[:-suffix_len]
+            img_path = None
+            for img_suffix in self.IMG_SUFFIXES:
+                candidate = osp.join(img_dir, rel_stem + img_suffix)
+                if fileio.exists(candidate, backend_args=self.backend_args):
+                    img_path = candidate
+                    break
+            if img_path is None:
+                continue
+
+            data_info = dict(
+                img_path=img_path,
+                seg_map_path=osp.join(ann_dir, seg_map),
+                label_map=self.label_map,
+                reduce_zero_label=self.reduce_zero_label,
+                seg_fields=[])
+            data_list.append(data_info)
+
+        data_list = sorted(data_list, key=lambda x: x['img_path'])
+        return data_list

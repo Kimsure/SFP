@@ -161,10 +161,16 @@ class SFPForSegmentation(BaseSegmentor):
 
             num_cls, num_queries = max(self.query_idx) + 1, len(self.query_idx)
             if num_cls != num_queries:
-                seg_logits = seg_logits.unsqueeze(0)
-                cls_index = nn.functional.one_hot(self.query_idx)
-                cls_index = cls_index.T.view(num_cls, num_queries, 1, 1)
-                seg_logits = (seg_logits * cls_index).max(1)[0]
+                # Aggregate synonym-level logits into class-level logits without
+                # constructing a huge broadcast tensor of shape (num_cls, num_queries, H, W).
+                qidx = torch.as_tensor(self.query_idx, device=seg_logits.device)
+                class_logits = seg_logits.new_full((num_cls, *seg_logits.shape[1:]),
+                                                   float('-inf'))
+                for cls_id in range(num_cls):
+                    mask = (qidx == cls_id)
+                    if mask.any():
+                        class_logits[cls_id] = seg_logits[mask].max(0)[0]
+                seg_logits = class_logits
                 seg_pred = seg_logits.argmax(0, keepdim=True)
 
             if self.area_thd is not None:

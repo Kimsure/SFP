@@ -1,0 +1,271 @@
+2026/05/28 15:08:14 - mmengine - INFO - 
+------------------------------------------------------------
+System environment:
+    sys.platform: linux
+    Python: 3.9.23 (main, Jun  5 2025, 13:40:20) [GCC 11.2.0]
+    CUDA available: True
+    numpy_random_seed: 838781327
+    GPU 0: NVIDIA GeForce RTX 4090
+    CUDA_HOME: /usr/local/cuda
+    NVCC: Cuda compilation tools, release 12.1, V12.1.105
+    GCC: gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0
+    PyTorch: 2.0.0+cu118
+    PyTorch compiling details: PyTorch built with:
+  - GCC 9.3
+  - C++ Version: 201703
+  - Intel(R) oneAPI Math Kernel Library Version 2022.2-Product Build 20220804 for Intel(R) 64 architecture applications
+  - Intel(R) MKL-DNN v2.7.3 (Git Hash 6dbeffbae1f23cbbeae17adb7b5b13f1f37c080e)
+  - OpenMP 201511 (a.k.a. OpenMP 4.5)
+  - LAPACK is enabled (usually provided by MKL)
+  - NNPACK is enabled
+  - CPU capability usage: AVX2
+  - CUDA Runtime 11.8
+  - NVCC architecture flags: -gencode;arch=compute_37,code=sm_37;-gencode;arch=compute_50,code=sm_50;-gencode;arch=compute_60,code=sm_60;-gencode;arch=compute_70,code=sm_70;-gencode;arch=compute_75,code=sm_75;-gencode;arch=compute_80,code=sm_80;-gencode;arch=compute_86,code=sm_86;-gencode;arch=compute_90,code=sm_90
+  - CuDNN 8.7
+  - Magma 2.6.1
+  - Build settings: BLAS_INFO=mkl, BUILD_TYPE=Release, CUDA_VERSION=11.8, CUDNN_VERSION=8.7.0, CXX_COMPILER=/opt/rh/devtoolset-9/root/usr/bin/c++, CXX_FLAGS= -D_GLIBCXX_USE_CXX11_ABI=0 -fabi-version=11 -Wno-deprecated -fvisibility-inlines-hidden -DUSE_PTHREADPOOL -DNDEBUG -DUSE_KINETO -DLIBKINETO_NOROCTRACER -DUSE_FBGEMM -DUSE_QNNPACK -DUSE_PYTORCH_QNNPACK -DUSE_XNNPACK -DSYMBOLICATE_MOBILE_DEBUG_HANDLE -O2 -fPIC -Wall -Wextra -Werror=return-type -Werror=non-virtual-dtor -Werror=bool-operation -Wnarrowing -Wno-missing-field-initializers -Wno-type-limits -Wno-array-bounds -Wno-unknown-pragmas -Wunused-local-typedefs -Wno-unused-parameter -Wno-unused-function -Wno-unused-result -Wno-strict-overflow -Wno-strict-aliasing -Wno-error=deprecated-declarations -Wno-stringop-overflow -Wno-psabi -Wno-error=pedantic -Wno-error=redundant-decls -Wno-error=old-style-cast -fdiagnostics-color=always -faligned-new -Wno-unused-but-set-variable -Wno-maybe-uninitialized -fno-math-errno -fno-trapping-math -Werror=format -Werror=cast-function-type -Wno-stringop-overflow, LAPACK_INFO=mkl, PERF_WITH_AVX=1, PERF_WITH_AVX2=1, PERF_WITH_AVX512=1, TORCH_DISABLE_GPU_ASSERTS=ON, TORCH_VERSION=2.0.0, USE_CUDA=ON, USE_CUDNN=ON, USE_EXCEPTION_PTR=1, USE_GFLAGS=OFF, USE_GLOG=OFF, USE_MKL=ON, USE_MKLDNN=ON, USE_MPI=OFF, USE_NCCL=1, USE_NNPACK=ON, USE_OPENMP=ON, USE_ROCM=OFF, 
+
+    TorchVision: 0.15.1+cu118
+    OpenCV: 4.10.0
+    MMEngine: 0.8.4
+
+Runtime environment:
+    cudnn_benchmark: True
+    mp_cfg: {'mp_start_method': 'fork', 'opencv_num_threads': 0}
+    dist_cfg: {'backend': 'nccl'}
+    seed: 838781327
+    Distributed launcher: none
+    Distributed training: False
+    GPU number: 1
+------------------------------------------------------------
+
+2026/05/28 15:08:14 - mmengine - INFO - Config:
+data_root = '/data/JS/OVDG/data/BDD'
+dataset_type = 'BDD100KInpaint41Dataset'
+default_hooks = dict(
+    checkpoint=dict(by_epoch=False, interval=2000, type='CheckpointHook'),
+    logger=dict(interval=50, log_metric_by_epoch=False, type='LoggerHook'),
+    param_scheduler=dict(type='ParamSchedulerHook'),
+    sampler_seed=dict(type='DistSamplerSeedHook'),
+    timer=dict(type='IterTimerHook'),
+    visualization=dict(interval=1, type='SegVisualizationHook'))
+default_scope = 'mmseg'
+env_cfg = dict(
+    cudnn_benchmark=True,
+    dist_cfg=dict(backend='nccl'),
+    mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0))
+launcher = 'none'
+load_from = None
+log_level = 'INFO'
+log_processor = dict(by_epoch=False)
+model = dict(
+    clip_path='ViT-B/16',
+    cross_e=10,
+    cross_s=3,
+    name_path='./configs/cls_inpaint41.txt',
+    pm='SOM',
+    prob_thd=0.15,
+    purify=True,
+    res_cls=0.3,
+    type='SFPForSegmentation')
+resume = False
+test_cfg = dict(type='TestLoop')
+test_dataloader = dict(
+    batch_size=1,
+    dataset=dict(
+        data_prefix=dict(
+            img_path='bdd_inpaint41/images',
+            seg_map_path='bdd_inpaint41/labels'),
+        data_root='/data/JS/OVDG/data/BDD',
+        pipeline=[
+            dict(type='LoadImageFromFile'),
+            dict(keep_ratio=True, scale=(
+                2048,
+                560,
+            ), type='Resize'),
+            dict(type='LoadAnnotations'),
+            dict(type='PackSegInputs'),
+        ],
+        type='BDD100KInpaint41Dataset'),
+    num_workers=4,
+    persistent_workers=True,
+    sampler=dict(shuffle=False, type='DefaultSampler'))
+test_evaluator = dict(
+    iou_metrics=[
+        'mIoU',
+    ], type='IoUMetric')
+test_pipeline = [
+    dict(type='LoadImageFromFile'),
+    dict(keep_ratio=True, scale=(
+        2048,
+        560,
+    ), type='Resize'),
+    dict(type='LoadAnnotations'),
+    dict(type='PackSegInputs'),
+]
+vis_backends = [
+    dict(type='LocalVisBackend'),
+]
+visualizer = dict(
+    name='visualizer',
+    type='SegLocalVisualizer',
+    vis_backends=[
+        dict(type='LocalVisBackend'),
+    ])
+work_dir = '/data/JS/MyGithub_Repos/SFP/SFP_ICCV/work_logs_tf_ovdg/20260528_150809/bdd41'
+
+2026/05/28 15:08:20 - mmengine - INFO - Distributed training is not used, all SyncBatchNorm (SyncBN) layers in the model will be automatically reverted to BatchNormXd layers if they are used.
+2026/05/28 15:08:20 - mmengine - INFO - Hooks will be executed in the following order:
+before_run:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+before_train:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_train_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) DistSamplerSeedHook                
+ -------------------- 
+before_train_iter:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_train_iter:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) SegVisualizationHook               
+(BELOW_NORMAL) LoggerHook                         
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+after_train_epoch:
+(NORMAL      ) IterTimerHook                      
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_val:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+before_val_epoch:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+before_val_iter:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_val_iter:
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) SegVisualizationHook               
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_val_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+after_val:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+after_train:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_test:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+before_test_epoch:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+before_test_iter:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_test_iter:
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) SegVisualizationHook               
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_test_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_test:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+after_run:
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+2026/05/28 15:08:20 - mmengine - WARNING - The prefix is not set in metric class IoUMetric.
+2026/05/28 15:08:38 - mmengine - INFO - Iter(test) [  50/1000]    eta: 0:05:44  time: 0.3230  data_time: 0.0030  memory: 1491  
+2026/05/28 15:08:56 - mmengine - INFO - Iter(test) [ 100/1000]    eta: 0:05:19  time: 0.3529  data_time: 0.0040  memory: 1491  
+2026/05/28 15:09:13 - mmengine - INFO - Iter(test) [ 150/1000]    eta: 0:04:58  time: 0.3571  data_time: 0.0040  memory: 1491  
+2026/05/28 15:09:30 - mmengine - INFO - Iter(test) [ 200/1000]    eta: 0:04:38  time: 0.3488  data_time: 0.0037  memory: 1491  
+2026/05/28 15:09:47 - mmengine - INFO - Iter(test) [ 250/1000]    eta: 0:04:20  time: 0.3641  data_time: 0.0041  memory: 1491  
+2026/05/28 15:10:05 - mmengine - INFO - Iter(test) [ 300/1000]    eta: 0:04:03  time: 0.3619  data_time: 0.0040  memory: 1491  
+2026/05/28 15:10:21 - mmengine - INFO - Iter(test) [ 350/1000]    eta: 0:03:45  time: 0.3158  data_time: 0.0029  memory: 1491  
+2026/05/28 15:10:40 - mmengine - INFO - Iter(test) [ 400/1000]    eta: 0:03:28  time: 0.3352  data_time: 0.0032  memory: 1491  
+2026/05/28 15:10:58 - mmengine - INFO - Iter(test) [ 450/1000]    eta: 0:03:13  time: 0.3512  data_time: 0.0035  memory: 1491  
+2026/05/28 15:11:15 - mmengine - INFO - Iter(test) [ 500/1000]    eta: 0:02:55  time: 0.3423  data_time: 0.0033  memory: 1491  
+2026/05/28 15:11:32 - mmengine - INFO - Iter(test) [ 550/1000]    eta: 0:02:36  time: 0.3206  data_time: 0.0030  memory: 1491  
+2026/05/28 15:11:48 - mmengine - INFO - Iter(test) [ 600/1000]    eta: 0:02:18  time: 0.3215  data_time: 0.0030  memory: 1491  
+2026/05/28 15:12:06 - mmengine - INFO - Iter(test) [ 650/1000]    eta: 0:02:01  time: 0.3283  data_time: 0.0031  memory: 1491  
+2026/05/28 15:12:24 - mmengine - INFO - Iter(test) [ 700/1000]    eta: 0:01:44  time: 0.3349  data_time: 0.0031  memory: 1491  
+2026/05/28 15:12:41 - mmengine - INFO - Iter(test) [ 750/1000]    eta: 0:01:26  time: 0.3298  data_time: 0.0031  memory: 1491  
+2026/05/28 15:12:58 - mmengine - INFO - Iter(test) [ 800/1000]    eta: 0:01:09  time: 0.3881  data_time: 0.0042  memory: 1491  
+2026/05/28 15:13:16 - mmengine - INFO - Iter(test) [ 850/1000]    eta: 0:00:52  time: 0.3628  data_time: 0.0036  memory: 1491  
+2026/05/28 15:13:33 - mmengine - INFO - Iter(test) [ 900/1000]    eta: 0:00:34  time: 0.3421  data_time: 0.0030  memory: 1491  
+2026/05/28 15:13:52 - mmengine - INFO - Iter(test) [ 950/1000]    eta: 0:00:17  time: 0.3577  data_time: 0.0038  memory: 1491  
+2026/05/28 15:14:09 - mmengine - INFO - Iter(test) [1000/1000]    eta: 0:00:00  time: 0.3182  data_time: 0.0029  memory: 1491  
+2026/05/28 15:14:09 - mmengine - INFO - per class results:
+2026/05/28 15:14:09 - mmengine - INFO - 
++---------------+-------+-------+
+|     Class     |  IoU  |  Acc  |
++---------------+-------+-------+
+|      road     | 48.93 |  88.5 |
+|    sidewalk   | 29.89 | 49.81 |
+|    building   | 30.08 | 30.82 |
+|      wall     |  8.36 | 32.42 |
+|     fence     | 12.09 | 14.64 |
+|      pole     | 15.25 | 26.86 |
+| traffic light | 24.22 | 66.02 |
+|  traffic sign |  26.8 | 32.29 |
+|   vegetation  | 72.34 | 79.45 |
+|    terrain    | 28.15 | 35.62 |
+|      sky      | 67.36 | 67.75 |
+|     person    |  5.09 |  5.47 |
+|     rider     |  6.95 | 26.23 |
+|      car      | 63.31 | 74.86 |
+|     truck     | 28.99 | 51.39 |
+|      bus      | 59.12 | 65.38 |
+|     train     |  5.43 |  5.93 |
+|   motorcycle  | 10.56 | 10.58 |
+|    bicycle    |  6.9  |  8.67 |
+|      bag      |  49.6 | 52.94 |
+|      ball     | 76.65 | 92.49 |
+|     barrel    | 71.72 | 88.07 |
+|     bench     | 41.41 | 46.56 |
+|      bird     | 65.64 | 77.78 |
+|     bottle    | 52.82 |  60.5 |
+|      cart     | 57.31 | 72.73 |
+|      cat      | 57.49 | 72.22 |
+|     chair     | 54.59 | 75.35 |
+|      cow      | 70.45 |  88.5 |
+|      deer     | 55.18 | 78.14 |
+|      dog      | 63.25 | 83.24 |
+|     drone     | 54.18 | 78.37 |
+|    elephant   | 65.91 |  80.3 |
+|      hat      | 73.63 | 85.81 |
+|     horse     | 69.66 | 88.58 |
+|     robot     | 71.61 | 88.13 |
+|     sheep     | 76.12 |  94.8 |
+|     table     | 26.41 | 43.23 |
+|      toy      |  0.68 |  0.68 |
+|    umbrella   | 76.22 | 94.49 |
+|     zebra     | 56.56 | 83.27 |
++---------------+-------+-------+
+2026/05/28 15:14:09 - mmengine - INFO - Iter(test) [1000/1000]    aAcc: 68.1900  mIoU: 44.8000  mAcc: 58.5100  data_time: 0.0036  time: 0.3484

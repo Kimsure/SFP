@@ -1,0 +1,11 @@
+road
+sidewalk
+barrier
+police vehicle
+work vehicle
+police officer
+worker
+cone
+arrow board
+ttc sign
+

@@ -1,0 +1,31 @@
+road, roadway
+sidewalk
+building, buildings, facade, frontage, frontal
+wall, brick wall, stone wall
+bridge
+tunnel
+traffic sign, road sign
+traffic light
+pole
+fence, wire fence, metal fence, wooden fence, picket fence, chain-link fence, garden fence
+sky, cloudy sky, blue sky, the sky above, clear sky, skyline, atmosphere
+vegetation, trees, bushes, plants, greenery
+terrain, grass, dirt ground, field, soil, meadow, lawn
+water
+snow
+sand
+person, people, human, child, women, man, crowd, girl, boy, lady, gentleman
+rider
+car, automobile
+truck
+bus
+train, locomotive
+bicycle
+motorcycle, motorbike
+animal
+signboard
+railway
+boat
+chair
+trash can
+
