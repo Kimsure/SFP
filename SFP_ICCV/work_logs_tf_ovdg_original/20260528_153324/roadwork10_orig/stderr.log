@@ -1,2 +1,0 @@
-/home/user/anaconda3/envs/SFP_ovss/lib/python3.9/site-packages/mmseg/engine/hooks/visualization_hook.py:61: UserWarning: The draw is False, it means that the hook for visualization will not take effect. The results will NOT be visualized or stored.
-  warnings.warn('The draw is False, it means that the '
